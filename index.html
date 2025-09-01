@@ -1,98 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Standings</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            max-width: 800px;
-            margin: auto;
-        }
-        th, td {
-            border: 1px solid #aaa;
-            padding: 8px 12px;
-            text-align: center;
-        }
-        th {
-            background-color: #eee;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        tr:hover {
-            background-color: #e0e0e0;
-        }
-    </style>
-</head>
-<body>
-    <h1>BAHLS Champions League Standings</h1>
-    <table id="standingsTable">
-        <thead>
-            <tr>
-                <th>Team Name</th>
-                <th>Wins</th>
-                <th>Losses</th>
-                <th>Ties</th>
-                <th>Points</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Data will be injected here -->
-        </tbody>
-    </table>
+<script>
+    // Change this to your GitHub Pages JSON file
+    const PIPELINE_URL = "https://joegago80-dot.github.io/bahlsfantasyhockey/fantasyData.json";
 
-    <script>
-        const PIPELINE_URL = "https://eo7ycj152fpbkbn.m.pipedream.net";
+    async function fetchStandings() {
+        try {
+            const response = await fetch(PIPELINE_URL);
+            if (!response.ok) throw new Error("Failed to fetch JSON: " + response.status);
+            const data = await response.json();
 
-        async function fetchStandings() {
-            try {
-                const response = await fetch(PIPELINE_URL);
-                if (!response.ok) throw new Error("Failed to fetch JSON: " + response.status);
-                const data = await response.json();
-
-                const standings = data?.standings?.Standings;
-                if (!standings || !Array.isArray(standings)) {
-                    throw new Error("Standings data not found or invalid format");
-                }
-
-                // Sort by points descending, then wins descending
-                standings.sort((a, b) => {
-                    if (b.points !== a.points) return b.points - a.points;
-                    return b.wins - a.wins;
-                });
-
-                const tbody = document.querySelector("#standingsTable tbody");
-                tbody.innerHTML = "";
-
-                standings.forEach(team => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${team.name}</td>
-                        <td>${team.wins}</td>
-                        <td>${team.losses}</td>
-                        <td>${team.ties}</td>
-                        <td>${team.points}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-
-            } catch (err) {
-                console.error(err);
-                const tbody = document.querySelector("#standingsTable tbody");
-                tbody.innerHTML = `<tr><td colspan="5">Error loading standings: ${err.message}</td></tr>`;
+            // Pull standings from the GitHub-hosted JSON
+            const standings = data?.standings?.Standings;
+            if (!standings || !Array.isArray(standings)) {
+                throw new Error("Standings data not found or invalid format");
             }
+
+            // Sort by points descending, then wins descending
+            standings.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                return b.wins - a.wins;
+            });
+
+            const tbody = document.querySelector("#standingsTable tbody");
+            tbody.innerHTML = "";
+
+            standings.forEach(team => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${team.name}</td>
+                    <td>${team.wins}</td>
+                    <td>${team.losses}</td>
+                    <td>${team.ties}</td>
+                    <td>${team.points}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+        } catch (err) {
+            console.error(err);
+            const tbody = document.querySelector("#standingsTable tbody");
+            tbody.innerHTML = `<tr><td colspan="5">Error loading standings: ${err.message}</td></tr>`;
         }
+    }
 
-        fetchStandings();
-
-        // Optional: refresh every 10 minutes
-        // setInterval(fetchStandings, 10 * 60 * 1000);
-    </script>
-</body>
-</html>
+    fetchStandings();
+</script>
