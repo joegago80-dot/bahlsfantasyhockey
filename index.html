@@ -1,46 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BAHLS Fantasy Hockey</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+table { border-collapse: collapse; width: 100%; max-width: 1000px; margin: 40px auto; }
+th, td { border: 1px solid #aaa; padding: 6px 10px; text-align: center; }
+th { background-color: #eee; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+tr:hover { background-color: #e0e0e0; }
+h2 { text-align: center; margin-top: 60px; }
+</style>
+</head>
+<body>
+
+<h1>BAHLS Fantasy Hockey Dashboard</h1>
+
+<!-- Standings Table -->
+<h2>Standings</h2>
+<table id="standingsTable">
+  <thead>
+    <tr>
+      <th>Team Name</th><th>Wins</th><th>Losses</th><th>Ties</th><th>Points</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Managed Team Table -->
+<h2>Managed Teams</h2>
+<table id="managedTeamTable">
+  <thead>
+    <tr>
+      <th>Team Name</th><th>Manager</th><th>Level</th><th>Score</th><th>Last Year's Standing</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Players Table -->
+<h2>Players</h2>
+<table id="playersTable">
+  <thead>
+    <tr>
+      <th>Player Name</th><th>Position</th><th>NHL Team</th><th>Yahoo Rank</th><th>Manager Team</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Draft Results Table -->
+<h2>Draft Results</h2>
+<table id="draftResultsTable">
+  <thead>
+    <tr>
+      <th>Draft Pick #</th><th>Round #</th><th>Player Name</th><th>Position</th><th>NHL Team</th><th>Manager Team</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Weekly Matchups Table -->
+<h2>Weekly Matchups</h2>
+<table id="weeklyMatchupsTable">
+  <thead>
+    <tr>
+      <th>Matchup</th><th>Home Team</th><th>Away Team</th><th>Week</th><th>Home Score</th><th>Away Score</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Season Stats Table -->
+<h2>Season Stats</h2>
+<table id="seasonStatsTable">
+  <thead>
+    <tr>
+      <th>Team</th><th>Last Season Rank</th><th>Waiver Priority</th><th>Roster Moves</th><th>Trades</th>
+      <th>G</th><th>A</th><th>PPP</th><th>SHP</th><th>GWG</th><th>SOG</th><th>HIT</th><th>BLK</th>
+      <th>W</th><th>SV*</th><th>SA*</th><th>SV%</th><th>Team Points</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Playoffs Table -->
+<h2>Playoffs</h2>
+<table id="playoffsTable">
+  <thead>
+    <tr>
+      <th>Round</th><th>Matchup</th><th>Home Team</th><th>Away Team</th><th>Winner</th><th>Champion</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Transactions Table -->
+<h2>Transactions</h2>
+<table id="transactionsTable">
+  <thead>
+    <tr>
+      <th>Transaction ID</th><th>Time</th><th>Type</th><th>Player</th><th>Old Team</th><th>New Team</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
 <script>
-    // Change this to your GitHub Pages JSON file
-    const PIPELINE_URL = "https://joegago80-dot.github.io/bahlsfantasyhockey/fantasyData.json";
+const DATA_URL = "https://joegago80-dot.github.io/bahlsfantasyhockey/fantasyData.json";
 
-    async function fetchStandings() {
-        try {
-            const response = await fetch(PIPELINE_URL);
-            if (!response.ok) throw new Error("Failed to fetch JSON: " + response.status);
-            const data = await response.json();
+async function fetchFantasyData() {
+  try {
+    const res = await fetch(DATA_URL + "?t=" + new Date().getTime());
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
 
-            // Pull standings from the GitHub-hosted JSON
-            const standings = data?.standings?.Standings;
-            if (!standings || !Array.isArray(standings)) {
-                throw new Error("Standings data not found or invalid format");
-            }
+    // --- Standings ---
+    const standings = data?.standings?.Standings || [];
+    const stBody = document.querySelector("#standingsTable tbody");
+    stBody.innerHTML = "";
+    standings.forEach(t => {
+      stBody.innerHTML += `<tr>
+        <td>${t.name}</td><td>${t.wins}</td><td>${t.losses}</td><td>${t.ties}</td><td>${t.points}</td>
+      </tr>`;
+    });
 
-            // Sort by points descending, then wins descending
-            standings.sort((a, b) => {
-                if (b.points !== a.points) return b.points - a.points;
-                return b.wins - a.wins;
-            });
+    // --- Managed Teams ---
+    const mt = data?.Managed_Team?.Managed_Team || [];
+    const mtBody = document.querySelector("#managedTeamTable tbody");
+    mtBody.innerHTML = "";
+    mt.forEach(t => {
+      mtBody.innerHTML += `<tr>
+        <td>${t.name}</td><td>${t.manager}</td><td>${t.felo_tier}</td><td>${t.felo_score}</td><td>${t.previous_season_team_rank}</td>
+      </tr>`;
+    });
 
-            const tbody = document.querySelector("#standingsTable tbody");
-            tbody.innerHTML = "";
+    // --- Players ---
+    const players = data?.players?.Players || [];
+    const plBody = document.querySelector("#playersTable tbody");
+    plBody.innerHTML = "";
+    players.forEach(p => {
+      plBody.innerHTML += `<tr>
+        <td>${p.playerName}</td><td>${p.playerPosition}</td><td>${p.editorial_team_abbr}</td><td>${p.playerRank}</td><td>${p.managerTeam}</td>
+      </tr>`;
+    });
 
-            standings.forEach(team => {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${team.name}</td>
-                    <td>${team.wins}</td>
-                    <td>${team.losses}</td>
-                    <td>${team.ties}</td>
-                    <td>${team.points}</td>
-                `;
-                tbody.appendChild(row);
-            });
+    // --- Draft Results ---
+    const draft = data?.draft_results?.picks || [];
+    const drBody = document.querySelector("#draftResultsTable tbody");
+    drBody.innerHTML = "";
+    draft.forEach(d => {
+      drBody.innerHTML += `<tr>
+        <td>${d.pick_number}</td><td>${d.round}</td><td>${d.player_name}</td><td>${d.position}</td><td>${d.nhl_team}</td><td>${d.manager_team}</td>
+      </tr>`;
+    });
 
-        } catch (err) {
-            console.error(err);
-            const tbody = document.querySelector("#standingsTable tbody");
-            tbody.innerHTML = `<tr><td colspan="5">Error loading standings: ${err.message}</td></tr>`;
-        }
-    }
+    // --- Weekly Matchups ---
+    const weekly = data?.weekly_matchups?.WeeklyMatchups || [];
+    const wkBody = document.querySelector("#weeklyMatchupsTable tbody");
+    wkBody.innerHTML = "";
+    weekly.forEach(w => {
+      wkBody.innerHTML += `<tr>
+        <td>${w.matchup}</td><td>${w.home_team}</td><td>${w.away_team}</td><td>${w.week}</td><td>${w.home_score}</td><td>${w.away_score}</td>
+      </tr>`;
+    });
 
-    fetchStandings();
+    // --- Season Stats ---
+    const stats = data?.team_stats?.SeasonStats || [];
+    const stSBody = document.querySelector("#seasonStatsTable tbody");
+    stSBody.innerHTML = "";
+    stats.forEach(s => {
+      stSBody.innerHTML += `<tr>
+        <td>${s.team_name}</td><td>${s.previous_season_team_rank}</td><td>${s.waiver_priority}</td><td>${s.number_of_moves}</td><td>${s.number_of_trades}</td>
+        <td>${s.team_stat_1}</td><td>${s.team_stat_2}</td><td>${s.team_stat_3}</td><td>${s.team_stat_4}</td><td>${s.team_stat_5}</td>
+        <td>${s.team_stat_6}</td><td>${s.team_stat_7}</td><td>${s.team_stat_8}</td><td>${s.team_stat_9}</td><td>${s.team_stat_10}</td>
+        <td>${s.team_stat_11}</td><td>${s.team_stat_12}</td><td>${s.team_points}</td>
+      </tr>`;
+    });
+
+    // --- Playoffs ---
+    const playoffs = data?.playoffs || {};
+    const pBody = document.querySelector("#playoffsTable tbody");
+    pBody.innerHTML = "";
+    (playoffs.round1 || []).forEach(r => {
+      pBody.innerHTML += `<tr>
+        <td>Round 1</td><td>${r.matchup}</td><td>${r.home_team}</td><td>${r.away_team}</td><td>${r.winner}</td><td>${r.champion || ""}</td>
+      </tr>`;
+    });
+    (playoffs.semifinals || []).forEach(r => {
+      pBody.innerHTML += `<tr>
+        <td>Semifinals</td><td>${r.matchup}</td><td>${r.home_team}</td><td>${r.away_team}</td><td>${r.winner}</td><td>${r.champion || ""}</td>
+      </tr>`;
+    });
+    (playoffs.finals || []).forEach(r => {
+      pBody.innerHTML += `<tr>
+        <td>Finals</td><td>${r.matchup}</td><td>${r.home_team}</td><td>${r.away_team}</td><td>${r.winner}</td><td>${r.champion || ""}</td>
+      </tr>`;
+    });
+
+    // --- Transactions ---
+    const trans = data?.transactions?.Transactions || [];
+    const trBody = document.querySelector("#transactionsTable tbody");
+    trBody.innerHTML = "";
+    trans.forEach(t => {
+      trBody.innerHTML += `<tr>
+        <td>${t.id}</td><td>${t.time}</td><td>${t.type}</td><td>${t.player}</td><td>${t.old_team}</td><td>${t.new_team}</td>
+      </tr>`;
+    });
+
+  } catch(err) {
+    console.error(err);
+    document.body.innerHTML += `<p style="color:red; text-align:center;">Error fetching data: ${err.message}</p>`;
+  }
+}
+
+fetchFantasyData();
 </script>
+
+</body>
+</html>
