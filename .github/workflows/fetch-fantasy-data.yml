@@ -1,26 +1,25 @@
 name: Fetch Fantasy Hockey Data
 
-# Schedule: runs daily at 06:15 UTC, also allows manual trigger
 on:
   schedule:
     - cron: '15 6 * * *' 
-  workflow_dispatch: 
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 👈 allow pushing to repo
 
 jobs:
   fetch-and-commit:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Fetch combined fantasy data from Pipedream
       - name: Fetch Fantasy Data from Pipedream
         run: |
           curl -s https://eok6o662jtspb86.m.pipedream.net -o fantasyData.json
 
-      # Step 3: Commit the updated JSON back to the repository
       - name: Commit JSON
         run: |
           git config user.name "github-actions[bot]"
