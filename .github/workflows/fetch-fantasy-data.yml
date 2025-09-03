@@ -1,33 +1,57 @@
 name: Fetch Fantasy Hockey Data
 
-on:
-  schedule:
-    - cron: '15 6 * * *' 
-  workflow_dispatch:
-
 permissions:
   contents: write   # allow pushing to repo
+
+on:
+  schedule:
+    - cron: '30 10 * * *'   # 05:30 EST / 06:30 EDT
+  workflow_dispatch:        # manual trigger
 
 jobs:
   fetch-and-commit:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # Step 2: Fetch combined fantasy data from Pipedream
       - name: Fetch Fantasy Data from Pipedream
+        id: fetch_data
         run: |
-          curl -s https://eok6o662jtspb86.m.pipedream.net -o fantasyData.json
+          curl -s https://eok6o662jtspb86.m.pipedream.net -o fantasyData.tmp.json
+          
+          if jq empty fantasyData.tmp.json > /dev/null 2>&1; then
+            echo "✅ Valid JSON fetched, updating fantasyData.json"
+            mv fantasyData.tmp.json fantasyData.json
+            echo "update_status=success" >> $GITHUB_ENV
+            echo "fetch_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+          else
+            echo "::warning::⚠️ No valid JSON returned from Pipedream — keeping existing fantasyData.json"
+            echo "⚠️ No valid JSON returned — old data kept." >> $GITHUB_STEP_SUMMARY
+            rm fantasyData.tmp.json
+            echo "update_status=skipped" >> $GITHUB_ENV
+          fi
 
+      # Step 3: Commit the updated JSON back to the repository
       - name: Commit JSON
+        if: env.update_status == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add fantasyData.json
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update fantasy data"
-            git push
-          fi
+          git diff --cached --quiet || git commit -m "Update fantasy data"
+          git push
+
+      # Step 4: Add Summary for Success
+      - name: Report Success
+        if: env.update_status == 'success'
+        run: |
+          echo "## ✅ Fantasy Data Updated" >> $GITHUB_STEP_SUMMARY
+          echo "A new **fantasyData.json** was fetched from Pipedream and committed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📅 Last successful fetch: **${{ env.fetch_time }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit message: \`Update fantasy data\`" >> $GITHUB_STEP_SUMMARY
