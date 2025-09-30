@@ -21,16 +21,31 @@ jobs:
       - name: Fetch Fantasy Data from Pipedream
         id: fetch_data
         run: |
-          curl -s https://eok6o662jtspb86.m.pipedream.net -o fantasyData.tmp.json
-          
+          # Fetch JSON via POST to trigger Node.js step
+          curl -s -X POST https://eok6o662jtspb86.m.pipedream.net -o fantasyData.tmp.json
+
+          # Validate JSON
           if jq empty fantasyData.tmp.json > /dev/null 2>&1; then
-            echo "✅ Valid JSON fetched, updating fantasyData.json"
-            mv fantasyData.tmp.json fantasyData.json
-            echo "update_status=success" >> $GITHUB_ENV
-            echo "fetch_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+            # Check if JSON is empty object or empty array
+            if [ "$(jq 'length' fantasyData.tmp.json)" -eq 0 ]; then
+              echo "::warning::Empty JSON returned from Pipedream — keeping existing fantasyData.json"
+              rm fantasyData.tmp.json
+              echo "update_status=skipped" >> $GITHUB_ENV
+            else
+              # Compare with existing JSON to avoid unnecessary commits
+              if cmp -s fantasyData.tmp.json fantasyData.json; then
+                echo "✅ No changes in JSON — keeping existing fantasyData.json"
+                rm fantasyData.tmp.json
+                echo "update_status=skipped" >> $GITHUB_ENV
+              else
+                echo "✅ Valid JSON fetched, updating fantasyData.json"
+                mv fantasyData.tmp.json fantasyData.json
+                echo "update_status=success" >> $GITHUB_ENV
+                echo "fetch_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+              fi
+            fi
           else
-            echo "::warning::⚠️ No valid JSON returned from Pipedream — keeping existing fantasyData.json"
-            echo "⚠️ No valid JSON returned — old data kept." >> $GITHUB_STEP_SUMMARY
+            echo "::warning::⚠️ Invalid JSON returned from Pipedream — keeping existing fantasyData.json"
             rm fantasyData.tmp.json
             echo "update_status=skipped" >> $GITHUB_ENV
           fi
