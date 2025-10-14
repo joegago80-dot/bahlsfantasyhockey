@@ -17,7 +17,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Install jq (for JSON parsing)
+      # Step 2: Install jq (for JSON validation)
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -25,64 +25,47 @@ jobs:
       - name: Fetch Fantasy Data from Pipedream
         id: fetch_data
         run: |
-          echo "📡 Fetching JSON from Pipedream..."
+          echo "📡 Fetching latest fantasy data from Pipedream..."
           curl -s -X POST https://eok6o662jtspb86.m.pipedream.net -o fantasyData.tmp.json
 
-          # Validate JSON
+          # Validate that response is valid JSON
           if ! jq empty fantasyData.tmp.json > /dev/null 2>&1; then
-            echo "::warning::⚠️ Invalid JSON returned — keeping existing fantasyData.json"
+            echo "::warning::⚠️ Invalid JSON returned from Pipedream — keeping existing fantasyData.json"
             rm fantasyData.tmp.json
             echo "update_status=skipped" >> $GITHUB_ENV
             exit 0
           fi
 
-          # If no existing data, just create new file
+          # If no existing file, initialize new
           if [ ! -f fantasyData.json ]; then
-            echo "🆕 No existing data — creating new fantasyData.json"
+            echo "🆕 No existing fantasyData.json found — creating a new one"
             mv fantasyData.tmp.json fantasyData.json
             echo "update_status=success" >> $GITHUB_ENV
             echo "fetch_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
             exit 0
           fi
 
-          echo "🔄 Merging existing and new fantasy data (keeping only current week’s matchups)..."
-          jq -s '
-            def get_matchups(obj):
-              (obj.weekly_matchups.WeeklyMatchups // obj.weekly_matchups // []);
-
-            {
-              Managed_Team:   (.[0].Managed_Team   + .[1].Managed_Team   | unique),
-              standings:      (.[0].standings      + .[1].standings      | unique),
-              players:        (.[0].players        + .[1].players        | unique_by(.player_id)),
-              weekly_matchups: {
-                WeeklyMatchups: get_matchups(.[1])   # 🟢 always take new week’s data
-              },
-              draft_results:  (.[0].draft_results  + .[1].draft_results  | unique),
-              playoffs:       (.[0].playoffs       + .[1].playoffs       | unique),
-              transactions:   (.[0].transactions   + .[1].transactions   | unique),
-              team_stats:     (.[0].team_stats     + .[1].team_stats     | unique)
-            }
-          ' fantasyData.json fantasyData.tmp.json > fantasyData.merged.json || {
-            echo "::warning::⚠️ Merge failed, keeping existing data"
+          # Check if fetched JSON is empty (zero-length object or array)
+          if [ "$(jq 'length' fantasyData.tmp.json)" -eq 0 ]; then
+            echo "::warning::⚠️ Empty JSON returned — keeping existing fantasyData.json"
             rm fantasyData.tmp.json
             echo "update_status=skipped" >> $GITHUB_ENV
             exit 0
-          }
+          fi
 
-          # Compare merged vs existing
-          if cmp -s fantasyData.merged.json fantasyData.json; then
-            echo "✅ No changes detected — skipping commit"
-            rm fantasyData.tmp.json fantasyData.merged.json
+          # Compare to existing JSON — commit only if different
+          if cmp -s fantasyData.tmp.json fantasyData.json; then
+            echo "✅ No changes detected — skipping update"
+            rm fantasyData.tmp.json
             echo "update_status=skipped" >> $GITHUB_ENV
           else
-            echo "✅ Data updated successfully"
-            mv fantasyData.merged.json fantasyData.json
-            rm fantasyData.tmp.json
+            echo "✅ New valid data fetched — updating fantasyData.json"
+            mv fantasyData.tmp.json fantasyData.json
             echo "update_status=success" >> $GITHUB_ENV
             echo "fetch_time=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
           fi
 
-      # Step 4: Commit the updated JSON back to the repository
+      # Step 4: Commit updated JSON if new data exists
       - name: Commit JSON
         if: env.update_status == 'success'
         run: |
@@ -92,12 +75,12 @@ jobs:
           git diff --cached --quiet || git commit -m "Update fantasy data"
           git push
 
-      # Step 5: Add Summary for Success
+      # Step 5: Report success
       - name: Report Success
         if: env.update_status == 'success'
         run: |
           echo "## ✅ Fantasy Data Updated" >> $GITHUB_STEP_SUMMARY
-          echo "A new **fantasyData.json** was fetched from Pipedream and merged." >> $GITHUB_STEP_SUMMARY
+          echo "A new **fantasyData.json** was fetched from Pipedream and committed." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📅 Last successful fetch: **${{ env.fetch_time }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
