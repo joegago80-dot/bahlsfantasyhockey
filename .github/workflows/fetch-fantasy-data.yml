@@ -36,7 +36,7 @@ jobs:
             exit 0
           fi
 
-          # If we don't have an existing JSON yet, just move the new one
+          # If no existing data, just create new file
           if [ ! -f fantasyData.json ]; then
             echo "🆕 No existing data — creating new fantasyData.json"
             mv fantasyData.tmp.json fantasyData.json
@@ -45,13 +45,23 @@ jobs:
             exit 0
           fi
 
-          echo "🔄 Merging existing and new fantasy data..."
+          echo "🔄 Merging existing and new fantasy data (keeping only current week’s matchups)..."
           jq -s '
-            .[0] * .[1] |
-            .weekly_matchups.WeeklyMatchups |=
-              (((.[0].weekly_matchups.WeeklyMatchups // [])
-              + (.[1].weekly_matchups.WeeklyMatchups // []))
-              | unique_by(.matchup_id))
+            def get_matchups(obj):
+              (obj.weekly_matchups.WeeklyMatchups // obj.weekly_matchups // []);
+
+            {
+              Managed_Team:   (.[0].Managed_Team   + .[1].Managed_Team   | unique),
+              standings:      (.[0].standings      + .[1].standings      | unique),
+              players:        (.[0].players        + .[1].players        | unique_by(.player_id)),
+              weekly_matchups: {
+                WeeklyMatchups: get_matchups(.[1])   # 🟢 always take new week’s data
+              },
+              draft_results:  (.[0].draft_results  + .[1].draft_results  | unique),
+              playoffs:       (.[0].playoffs       + .[1].playoffs       | unique),
+              transactions:   (.[0].transactions   + .[1].transactions   | unique),
+              team_stats:     (.[0].team_stats     + .[1].team_stats     | unique)
+            }
           ' fantasyData.json fantasyData.tmp.json > fantasyData.merged.json || {
             echo "::warning::⚠️ Merge failed, keeping existing data"
             rm fantasyData.tmp.json
@@ -59,7 +69,7 @@ jobs:
             exit 0
           }
 
-          # Compare merged with existing to prevent unnecessary commits
+          # Compare merged vs existing
           if cmp -s fantasyData.merged.json fantasyData.json; then
             echo "✅ No changes detected — skipping commit"
             rm fantasyData.tmp.json fantasyData.merged.json
